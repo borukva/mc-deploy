@@ -1,0 +1,60 @@
+name: Deploy (reusable)
+
+# Викликається з мод-репів. Джара НЕ збираємо — викачуємо з асетів релізу:
+# деплоїться байт-у-байт те, що реліз опублікував.
+on:
+  workflow_call:
+    inputs:
+      targets:
+        description: "Рядки '<глоб асета> -> <аліас сервера>' (аліаси в servers.json)"
+        required: true
+        type: string
+      tag:
+        description: "Тег релізу; порожньо = останній реліз репу"
+        required: false
+        type: string
+        default: ""
+      boot_ok:
+        description: "Маркер чистого буту в лозі"
+        required: false
+        type: string
+        default: "Done ("
+    secrets:
+      PTERO_URL:
+        required: true
+      PTERO_TOKEN:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Серіалізує деплої ОДНОГО репу. Два різні репи на один сервер GitHub
+    # серіалізувати не вміє (concurrency — per-repo); це покриває
+    # state-очікування в deploy_to_server.
+    concurrency:
+      group: mc-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Checkout mc-deploy (deploy.py + servers.json)
+        uses: actions/checkout@v4
+        with:
+          repository: borukva/mc-deploy
+          ref: v1
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag='${{ inputs.tag }}'
+          if [ -z "$tag" ]; then
+            tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          fi
+          echo "Deploying release $tag of $GITHUB_REPOSITORY"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern '*.jar' --dir assets
+
+      - name: Deploy
+        env:
+          PTERO_URL: ${{ secrets.PTERO_URL }}
+          PTERO_TOKEN: ${{ secrets.PTERO_TOKEN }}
+        run: |
+          python3 deploy.py --assets assets --targets '${{ inputs.targets }}' --boot-ok '${{ inputs.boot_ok }}'

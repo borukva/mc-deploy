@@ -1,6 +1,5 @@
 {
   "_comment": "alias -> Pterodactyl server short id (з URL панелі). Айді інертні без PTERO_URL+PTERO_TOKEN.",
-  "abyss": "FILL-ME",
-  "mindbattle-main": "FILL-ME",
-  "mindbattle-pvp": "FILL-ME"
+  "abyss": "1bbae735",
+  "mindbattle-test": "8fb79619"
 }
